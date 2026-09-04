@@ -1,0 +1,41 @@
+﻿
+
+-- MySQL Database Schema for QuickSolution
+-- This file uses MySQL syntax. Ignore any SQL Server validation errors in Visual Studio.
+-- Execute this script on your MySQL server to create/update the bookings table.
+
+CREATE DATABASE IF NOT EXISTS quicksolution;
+USE quicksolution;
+
+CREATE TABLE IF NOT EXISTS bookings (
+    id                 INT AUTO_INCREMENT PRIMARY KEY,
+    reference_number   VARCHAR(20)   NOT NULL UNIQUE,
+    full_name          VARCHAR(100)  NOT NULL,
+    phone              VARCHAR(20)   NOT NULL,
+    email              VARCHAR(150)  NOT NULL,
+    laptop_brand       VARCHAR(80)   NOT NULL,
+    laptop_model       VARCHAR(100),
+    serial_number      VARCHAR(100),
+    device_age         INT,
+    repair_category    VARCHAR(50)   NOT NULL,
+    issue_description  TEXT,
+    repair_date        DATE          NOT NULL,
+    time_slot          VARCHAR(30),
+    additional_notes   TEXT,
+    service_option     ENUM('dropoff','collection') NOT NULL DEFAULT 'dropoff',
+    collection_address VARCHAR(255),
+    device_images      JSON,
+    status             ENUM('Pending','Confirmed','In Progress','Ready for Pickup','Completed','Cancelled') NOT NULL DEFAULT 'Pending',
+    staff_note         TEXT,
+    created_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_reference_number (reference_number),
+    KEY idx_email (email),
+    KEY idx_phone (phone),
+    KEY idx_status (status),
+    KEY idx_repair_date (repair_date),
+    KEY idx_created_at (created_at),
+    KEY idx_service_option (service_option)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  

@@ -1,0 +1,157 @@
+<?php
+
+
+
+$host     = "localhost";
+$db_name  = "quicksolution_users";
+$username = "root";          // Change to your DB username
+$password = "";              // Change to your DB password
+
+// ── 2. Connect to MySQL ────────────────────────
+$conn = new mysqli($host, $username, $password, $db_name);
+
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// ── 3. Only handle POST requests ──────────────
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    header("Location: bookings.html");
+    exit();
+}
+
+// ── 4. Sanitize & collect form data ───────────
+function clean($conn, $value) {
+    return $conn->real_escape_string(trim(htmlspecialchars($value)));
+}
+
+$full_name          = clean($conn, $_POST['full_name']          ?? '');
+$phone              = clean($conn, $_POST['phone']              ?? '');
+$email              = clean($conn, $_POST['email']              ?? '');
+$laptop_brand       = clean($conn, $_POST['laptop_brand']       ?? '');
+$laptop_model       = clean($conn, $_POST['laptop_model']       ?? '');
+$serial_number      = clean($conn, $_POST['serial_number']      ?? '');
+$device_age         = clean($conn, $_POST['device_age']         ?? '');
+$repair_category    = clean($conn, $_POST['repair_category']    ?? '');
+$issue_description  = clean($conn, $_POST['issue_description']  ?? '');
+$repair_date        = clean($conn, $_POST['repair_date']        ?? '');
+$time_slot          = clean($conn, $_POST['time_slot']          ?? '');
+$additional_notes   = clean($conn, $_POST['additional_notes']   ?? '');
+$service_option     = clean($conn, $_POST['service_option']     ?? 'dropoff');
+$collection_address = clean($conn, $_POST['collection_address'] ?? '');
+
+// ── 5. Basic server-side validation ───────────
+$errors = [];
+
+if (empty($full_name))         $errors[] = "Full name is required.";
+if (empty($phone))             $errors[] = "Phone number is required.";
+if (empty($email) || !filter_var($_POST['email'], FILTER_VALIDATE_EMAIL))
+                               $errors[] = "A valid email address is required.";
+if (empty($laptop_brand))      $errors[] = "Laptop brand is required.";
+if (empty($repair_category))   $errors[] = "Repair category is required.";
+if (empty($repair_date))       $errors[] = "Preferred repair date is required.";
+if ($service_option === 'collection' && empty($collection_address))
+                               $errors[] = "Collection address is required for collection service.";
+
+if (!empty($errors)) {
+    // Redirect back with error messages stored in session
+    session_start();
+    $_SESSION['booking_errors'] = $errors;
+    header("Location: bookings.php");
+    exit();
+}
+
+// ── 6. Handle device image uploads ────────────
+$uploaded_images = '';
+
+if (!empty($_FILES['device_images']['name'][0])) {
+    $upload_dir = "uploads/device_images/";
+
+    // Create folder if it doesn't exist
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+
+    $allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    $image_paths   = [];
+    $max_files     = 5;
+    $count         = min(count($_FILES['device_images']['name']), $max_files);
+
+    for ($i = 0; $i < $count; $i++) {
+        $file_tmp  = $_FILES['device_images']['tmp_name'][$i];
+        $file_type = $_FILES['device_images']['type'][$i];
+        $file_name = time() . '_' . $i . '_' . basename($_FILES['device_images']['name'][$i]);
+        $file_path = $upload_dir . $file_name;
+
+        if (in_array($file_type, $allowed_types) && is_uploaded_file($file_tmp)) {
+            if (move_uploaded_file($file_tmp, $file_path)) {
+                $image_paths[] = $file_path;
+            }
+        }
+    }
+
+    $uploaded_images = implode(',', $image_paths);
+}
+
+// ── 7. Generate booking reference number ──────
+$reference_number = 'QF-' . strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
+
+// ── 8. Insert into database ───────────────────
+$sql = "INSERT INTO bookings (
+            reference_number,
+            full_name,
+            phone,
+            email,
+            laptop_brand,
+            laptop_model,
+            serial_number,
+            device_age,
+            repair_category,
+            issue_description,
+            repair_date,
+            time_slot,
+            additional_notes,
+            service_option,
+            collection_address,
+            device_images,
+            status,
+            created_at
+        ) VALUES (
+            '$reference_number',
+            '$full_name',
+            '$phone',
+            '$email',
+            '$laptop_brand',
+            '$laptop_model',
+            '$serial_number',
+            '$device_age',
+            '$repair_category',
+            '$issue_description',
+            '$repair_date',
+            '$time_slot',
+            '$additional_notes',
+            '$service_option',
+            '$collection_address',
+            '$uploaded_images',
+            'Pending',
+            NOW()
+        )";
+
+if ($conn->query($sql) === TRUE) {
+    // Success — redirect with reference number
+    session_start();
+    $_SESSION['booking_success']   = true;
+    $_SESSION['reference_number']  = $reference_number;
+    $_SESSION['customer_name']     = $full_name;
+    header("Location: booking-confirmation.php");
+    exit();
+} else {
+    // DB error
+    session_start();
+    $_SESSION['booking_errors'] = ["Database error: " . $conn->error];
+    header("Location: bookings.php");
+    exit();
+}
+
+$conn->close();
+?>

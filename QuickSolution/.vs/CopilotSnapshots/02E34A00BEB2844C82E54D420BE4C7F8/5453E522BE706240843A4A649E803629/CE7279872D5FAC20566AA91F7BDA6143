@@ -1,0 +1,161 @@
+﻿<?php
+// ── submit_booking.php ───────────────────────────────────────────────────────
+// Receives the booking form POST, validates input, saves to MySQL.
+// Returns JSON so bookings.html can show the success modal with a ref number.
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+
+// Only accept POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'message' => 'Method not allowed.']);
+    exit;
+}
+
+require_once 'db_connect.php';
+
+// ── Auto-create table if it doesn't exist ───────────────────────────────────
+$createTable = "
+CREATE TABLE IF NOT EXISTS bookings (
+    id                 INT AUTO_INCREMENT PRIMARY KEY,
+    reference_number   VARCHAR(20)   NOT NULL UNIQUE,
+    full_name          VARCHAR(100)  NOT NULL,
+    phone              VARCHAR(20)   NOT NULL,
+    email              VARCHAR(150)  NOT NULL,
+    laptop_brand       VARCHAR(60)   NOT NULL,
+    laptop_model       VARCHAR(100)  DEFAULT NULL,
+    serial_number      VARCHAR(100)  DEFAULT NULL,
+    device_age         VARCHAR(60)   DEFAULT NULL,
+    repair_category    VARCHAR(60)   NOT NULL,
+    issue_description  TEXT          DEFAULT NULL,
+    repair_date        DATE          NOT NULL,
+    time_slot          VARCHAR(30)   DEFAULT NULL,
+    additional_notes   TEXT          DEFAULT NULL,
+    service_option     ENUM('dropoff','collection') NOT NULL DEFAULT 'dropoff',
+    collection_address VARCHAR(255)  DEFAULT NULL,
+    status             VARCHAR(30)   NOT NULL DEFAULT 'Pending',
+    submitted_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+
+if (!$conn->query($createTable)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Table setup failed: ' . $conn->error]);
+    exit;
+}
+
+// ── Helper: sanitise a string field ─────────────────────────────────────────
+function clean(string $value): string {
+    return htmlspecialchars(strip_tags(trim($value)), ENT_QUOTES, 'UTF-8');
+}
+
+// ── Collect & sanitise POST data ─────────────────────────────────────────────
+$fullName          = clean($_POST['full_name']          ?? '');
+$phone             = clean($_POST['phone']              ?? '');
+$email             = clean($_POST['email']              ?? '');
+$laptopBrand       = clean($_POST['laptop_brand']       ?? '');
+$laptopModel       = clean($_POST['laptop_model']       ?? '');
+$serialNumber      = clean($_POST['serial_number']      ?? '');
+$deviceAge         = clean($_POST['device_age']         ?? '');
+$repairCategory    = clean($_POST['repair_category']    ?? '');
+$issueDescription  = clean($_POST['issue_description']  ?? '');
+$repairDate        = clean($_POST['repair_date']        ?? '');
+$timeSlot          = clean($_POST['time_slot']          ?? '');
+$additionalNotes   = clean($_POST['additional_notes']   ?? '');
+$serviceOption     = clean($_POST['service_option']     ?? 'dropoff');
+$collectionAddress = clean($_POST['collection_address'] ?? '');
+
+// ── Server-side validation ───────────────────────────────────────────────────
+$errors = [];
+
+if (empty($fullName))         $errors[] = 'Full name is required.';
+if (empty($phone))            $errors[] = 'Phone number is required.';
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email address is required.';
+if (empty($laptopBrand))      $errors[] = 'Laptop brand is required.';
+if (empty($repairCategory))   $errors[] = 'Repair category is required.';
+if (empty($repairDate))       $errors[] = 'Preferred repair date is required.';
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $repairDate)) $errors[] = 'Invalid date format.';
+if ($serviceOption === 'collection' && empty($collectionAddress)) {
+    $errors[] = 'Collection address is required when Collection is selected.';
+}
+if (!in_array($serviceOption, ['dropoff', 'collection'])) {
+    $serviceOption = 'dropoff';
+}
+
+if (!empty($errors)) {
+    http_response_code(422);
+    echo json_encode(['success' => false, 'message' => implode(' ', $errors)]);
+    exit;
+}
+
+// ── Generate unique reference number ────────────────────────────────────────
+function generateRef(mysqli $conn): string {
+    do {
+        $ref = 'QF-' . strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 6));
+        $check = $conn->prepare("SELECT id FROM bookings WHERE reference_number = ?");
+        $check->bind_param('s', $ref);
+        $check->execute();
+        $check->store_result();
+        $exists = $check->num_rows > 0;
+        $check->close();
+    } while ($exists);
+    return $ref;
+}
+
+$refNumber = generateRef($conn);
+
+// ── Insert into database ─────────────────────────────────────────────────────
+$stmt = $conn->prepare("
+    INSERT INTO bookings (
+        reference_number, full_name, phone, email,
+        laptop_brand, laptop_model, serial_number, device_age,
+        repair_category, issue_description, repair_date, time_slot,
+        additional_notes, service_option, collection_address
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+");
+
+if (!$stmt) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Query preparation failed: ' . $conn->error]);
+    exit;
+}
+
+$stmt->bind_param(
+    'sssssssssssssss',
+    $refNumber,
+    $fullName,
+    $phone,
+    $email,
+    $laptopBrand,
+    $laptopModel,
+    $serialNumber,
+    $deviceAge,
+    $repairCategory,
+    $issueDescription,
+    $repairDate,
+    $timeSlot,
+    $additionalNotes,
+    $serviceOption,
+    $collectionAddress
+);
+
+if ($stmt->execute()) {
+    $stmt->close();
+    $conn->close();
+
+    echo json_encode([
+        'success'   => true,
+        'message'   => 'Booking submitted successfully.',
+        'reference' => $refNumber,
+        'name'      => $fullName
+    ]);
+} else {
+    $error = $stmt->error;
+    $stmt->close();
+    $conn->close();
+
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Failed to save booking: ' . $error]);
+}
+?>

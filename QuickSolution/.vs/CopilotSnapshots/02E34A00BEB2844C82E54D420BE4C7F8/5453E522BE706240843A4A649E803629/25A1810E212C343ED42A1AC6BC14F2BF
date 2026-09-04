@@ -1,0 +1,28 @@
+﻿
+
+CREATE DATABASE IF NOT EXISTS quicksolution;
+USE quicksolution;
+
+CREATE TABLE IF NOT EXISTS bookings (
+    id                 INT AUTO_INCREMENT PRIMARY KEY,
+    reference_number   VARCHAR(20)   NOT NULL UNIQUE,
+    full_name          VARCHAR(100)  NOT NULL,
+    phone              VARCHAR(20)   NOT NULL,
+    email              VARCHAR(150)  NOT NULL,
+    laptop_brand       VARCHAR(80)   NOT NULL,
+    laptop_model       VARCHAR(100)  DEFAULT NULL,
+    serial_number      VARCHAR(100)  DEFAULT NULL,
+    device_age         VARCHAR(50)   DEFAULT NULL,
+    repair_category    VARCHAR(50)   NOT NULL,
+    issue_description  TEXT          DEFAULT NULL,
+    repair_date        DATE          NOT NULL,
+    time_slot          VARCHAR(30)   DEFAULT NULL,
+    additional_notes   TEXT          DEFAULT NULL,
+    service_option     ENUM('dropoff','collection') NOT NULL DEFAULT 'dropoff',
+    collection_address VARCHAR(255)  DEFAULT NULL,
+    device_images      TEXT          DEFAULT NULL,   -- comma-separated file paths
+    status             ENUM('Pending','Confirmed','In Progress','Ready for Pickup','Completed','Cancelled') NOT NULL DEFAULT 'Pending',
+    staff_note         TEXT          DEFAULT NULL,
+    created_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+);

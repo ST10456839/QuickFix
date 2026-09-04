@@ -1,0 +1,41 @@
+=== EMAIL LOG ===2026-09-03 19:42:22
+To: st10456839@rcconnect.edu.za
+Customer: Sibusiso Sindane
+Subject: Booking Confirmation - QF-829DE9
+Message:
+Hello Sibusiso Sindane,
+
+Your booking has been received successfully.
+
+Tracking reference: QF-829DE9
+Track your repair status here: http://localhost/track-repair.php?ref=QF-829DE9
+
+Thank you for choosing Quickfix Tech Solutions.
+
+Booking Reference: QF-829DE9
+PDF Attached: repair-receipt-QF-829DE9.pdf
+Script Dir: C:\xampp\htdocs\QuickSolution\QuickSolution
+Server Doc Root: C:/xampp/htdocs
+--------------------------------------------------
+
+=== EMAIL SEND ATTEMPT === 2026-09-03 19:46:26
+To: katlegosindane@gmail.com
+From: noreply@localhost
+Subject: Booking Confirmation - QF-76A384
+Sent: no
+Attachment: repair-receipt-QF-76A384.pdf (size=1411)
+------------------------------------------------------------
+=== EMAIL SEND ATTEMPT === 2026-09-03 19:52:17
+To: sindanesibu114@gmail.com
+From: Quickfix Tech Solutions <sindanesibu114@gmail.com>
+Subject: Booking Confirmation - QF-EF5978
+Sent via SMTP: yes
+Attachment: repair-receipt-QF-EF5978.pdf (size=1410)
+------------------------------------------------------------
+=== EMAIL SEND ATTEMPT === 2026-09-03 19:56:37
+To: sindanesibu114@gmail.com
+From: QuickFix <sindanesibu114@gmail.com>
+Subject: Booking Confirmation - QF-D0917D
+Sent via SMTP: no
+Attachment: repair-receipt-QF-D0917D.pdf (size=1406)
+------------------------------------------------------------
