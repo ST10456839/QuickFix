@@ -1,0 +1,79 @@
+# ---------------------------------------------------------------------------
+# QuickFix Laptop Solutions - Website and API CI
+#
+# Syntax-checks every PHP file and validates the database schema so that a
+# broken page or a malformed SQL migration never reaches the live site.
+# ---------------------------------------------------------------------------
+name: Website and API CI
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php-lint:
+    name: PHP syntax check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, mbstring, curl, json
+
+      - name: Lint every PHP file
+        run: |
+          set -e
+          FAILED=0
+          while IFS= read -r -d '' file; do
+            php -l "$file" > /dev/null || { echo "Syntax error in $file"; FAILED=1; }
+          done < <(find . -path ./QuickSolution/vendor -prune -o -name '*.php' -print0)
+          exit $FAILED
+
+      - name: Fail if credentials are committed
+        run: |
+          if git ls-files --error-unmatch .env QuickSolution/.env > /dev/null 2>&1; then
+            echo "::error::A .env file is tracked by git. Remove it and rotate the credentials."
+            exit 1
+          fi
+
+  schema-check:
+    name: Database schema and seed data
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: quickfix_db
+        ports: [ '3306:3306' ]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply schema
+        run: mysql -h 127.0.0.1 -uroot -proot quickfix_db < database/schema.sql
+
+      - name: Load seed data
+        run: mysql -h 127.0.0.1 -uroot -proot quickfix_db < database/seed_data.sql
+
+      - name: Assert every table holds at least ten records
+        run: |
+          mysql -N -B -h 127.0.0.1 -uroot -proot quickfix_db \
+            < database/verify_seed.sql > counts.txt
+          cat counts.txt
+          awk '$2 < 10 { print "::error::" $1 " holds only " $2 " records"; bad=1 }
+               END { exit bad }' counts.txt

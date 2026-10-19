@@ -1,0 +1,16 @@
+# Allow PATH_INFO style routing (track.php/QF-2026-00042) and pass the
+# Authorization header through to PHP on Apache + CGI/FastCGI.
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# Never serve dotfiles from the API directory.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>

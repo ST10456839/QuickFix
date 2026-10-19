@@ -1,0 +1,4 @@
+# Copy to local.properties and fill in. local.properties is git-ignored.
+sdk.dir=/path/to/Android/Sdk
+API_BASE_URL=https://quickfix.co.za/api/v1/
+GOOGLE_WEB_CLIENT_ID=000000000000-xxxxxxxxxxxxxxxx.apps.googleusercontent.com
